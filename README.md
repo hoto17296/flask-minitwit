@@ -4,7 +4,7 @@ Origin: https://github.com/pallets/flask/tree/master/examples/minitwit
 ## Setup
 ### Install dependencies
 ```
-pip install --editable .
+pip install --editable .[dev]
 ```
 
 ### Initialize database
@@ -12,9 +12,14 @@ pip install --editable .
 FLASK_APP=minitwit flask initdb
 ```
 
+### Set environments variables
+```
+cp .env.example .env
+```
+
 ## Run Server
 ```
-FLASK_APP=minitwit flask run
+honcho start
 ```
 
 ## Test

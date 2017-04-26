@@ -13,6 +13,7 @@ tests_require = [
 ]
 
 dev_require = [
+    'honcho',
 ]
 
 doc_require = [
