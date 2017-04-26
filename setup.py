@@ -15,6 +15,7 @@ tests_require = [
 
 dev_require = [
     'honcho',
+    'flake8',
 ]
 
 doc_require = [

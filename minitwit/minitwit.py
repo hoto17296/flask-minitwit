@@ -15,8 +15,7 @@ import psycopg2
 import psycopg2.extras
 from hashlib import md5
 from datetime import datetime
-from flask import Flask, request, session, url_for, redirect, \
-     render_template, abort, g, flash, _app_ctx_stack
+from flask import Flask, request, session, url_for, redirect, render_template, abort, g, flash
 from werkzeug import check_password_hash, generate_password_hash
 
 
@@ -71,26 +70,26 @@ def timeline():
     """
     if not g.user:
         return redirect(url_for('public_timeline'))
-    return render_template('timeline.html', messages=query_db('''
+    messages = query_db('''
         SELECT messages.*, users.*
         FROM messages
         JOIN users ON messages.user_id = users.id
         WHERE users.id = %s
            OR users.id IN (SELECT whom_id FROM followers WHERE who_id = %s)
         ORDER BY messages.pub_date DESC
-        LIMIT %s''',
-        [session['user_id'], session['user_id'], PER_PAGE]))
+        LIMIT %s''', [session['user_id'], session['user_id'], PER_PAGE])
+    return render_template('timeline.html', messages=messages)
 
 
 @app.route('/public')
 def public_timeline():
     """Displays the latest messages of all users."""
-    messages=query_db('''
-            SELECT messages.*, users.*
-            FROM messages
-            JOIN users ON messages.user_id = users.id
-            ORDER BY messages.pub_date DESC
-            LIMIT %s''', [PER_PAGE])
+    messages = query_db('''
+        SELECT messages.*, users.*
+        FROM messages
+        JOIN users ON messages.user_id = users.id
+        ORDER BY messages.pub_date DESC
+        LIMIT %s''', [PER_PAGE])
     return render_template('timeline.html', messages=messages)
 
 
@@ -102,18 +101,16 @@ def user_timeline(name):
         abort(404)
     followed = False
     if g.user:
-        followed = query_db('''SELECT 1 FROM followers WHERE
-            followers.who_id = %s AND followers.whom_id = %s''',
-            [session['user_id'], profile_user['id']],
-            one=True) is not None
-    return render_template('timeline.html', messages=query_db('''
-            SELECT messages.*, users.* FROM messages
-            JOIN users ON users.id = messages.user_id
-            WHERE users.id = %s
-            ORDER BY messages.pub_date DESC
-            LIMIT %s''',
-            [profile_user['id'], PER_PAGE]), followed=followed,
-            profile_user=profile_user)
+        followed = query_db('SELECT 1 FROM followers WHERE followers.who_id = %s AND followers.whom_id = %s',
+                            [session['user_id'], profile_user['id']], one=True) is not None
+    messages = query_db('''
+                        SELECT messages.*, users.* FROM messages
+                        JOIN users ON users.id = messages.user_id
+                        WHERE users.id = %s
+                        ORDER BY messages.pub_date DESC
+                        LIMIT %s''',
+                        [profile_user['id'], PER_PAGE])
+    return render_template('timeline.html', messages=messages, followed=followed, profile_user=profile_user)
 
 
 @app.route('/<name>/follow')
@@ -195,10 +192,9 @@ def register():
         elif get_user_id(request.form['name']) is not None:
             error = 'The name is already taken'
         else:
-            db_cur.execute('''INSERT INTO users (
-              name, email, pw_hash) values (%s, %s, %s)''',
-              [request.form['name'], request.form['email'],
-               generate_password_hash(request.form['password'])])
+            pw_hash = generate_password_hash(request.form['password'])
+            db_cur.execute('INSERT INTO users (name, email, pw_hash) values (%s, %s, %s)',
+                           [request.form['name'], request.form['email'], pw_hash])
             db_conn.commit()
             flash('You were successfully registered and can login now')
             return redirect(url_for('login'))

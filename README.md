@@ -27,3 +27,8 @@ honcho start
 ```
 python setup.py test
 ```
+
+## Lint
+```
+flake8 minitwit
+```
