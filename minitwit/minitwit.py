@@ -11,10 +11,9 @@
 
 import os
 import time
-import hashlib
 import psycopg2
 import psycopg2.extras
-from hashlib import md5
+from hashlib import md5, sha256
 from datetime import datetime
 from flask import Flask, request, session, url_for, redirect, render_template, abort, g, flash
 
@@ -45,7 +44,7 @@ def get_user_id(name):
 
 
 def generate_pw_hash(password):
-    return hashlib.sha256((SECRET_KEY + password).encode('utf-8')).hexdigest()
+    return sha256((SECRET_KEY + password).encode('utf-8')).hexdigest()
 
 
 def format_datetime(timestamp):
