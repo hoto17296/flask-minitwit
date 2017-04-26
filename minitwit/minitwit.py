@@ -11,18 +11,18 @@
 
 import os
 import time
+import hashlib
 import psycopg2
 import psycopg2.extras
 from hashlib import md5
 from datetime import datetime
 from flask import Flask, request, session, url_for, redirect, render_template, abort, g, flash
-from werkzeug import check_password_hash, generate_password_hash
 
 
 # configuration
-PER_PAGE = 30
-DEBUG = True
-SECRET_KEY = 'development key'
+PER_PAGE = int(os.environ.get('PER_PAGE', 30))
+DEBUG = bool(os.environ.get('DEBUG', False))
+SECRET_KEY = os.environ.get('SECRET_KEY', '')
 
 # create our little application :)
 app = Flask(__name__)
@@ -42,6 +42,10 @@ def get_user_id(name):
     """Convenience method to look up the id for a name."""
     rv = query_db('SELECT id FROM users WHERE name = %s', [name], one=True)
     return None if rv is None else rv['id']
+
+
+def generate_pw_hash(password):
+    return hashlib.sha256((SECRET_KEY + password).encode('utf-8')).hexdigest()
 
 
 def format_datetime(timestamp):
@@ -164,7 +168,7 @@ def login():
         user = query_db('''SELECT * FROM users WHERE name = %s''', [request.form['name']], one=True)
         if user is None:
             error = 'Invalid name'
-        elif not check_password_hash(user['pw_hash'], request.form['password']):
+        elif user['pw_hash'] != generate_pw_hash(request.form['password']):
             error = 'Invalid password'
         else:
             flash('You were logged in')
@@ -192,7 +196,7 @@ def register():
         elif get_user_id(request.form['name']) is not None:
             error = 'The name is already taken'
         else:
-            pw_hash = generate_password_hash(request.form['password'])
+            pw_hash = generate_pw_hash(request.form['password'])
             db_cur.execute('INSERT INTO users (name, email, pw_hash) values (%s, %s, %s)',
                            [request.form['name'], request.form['email'], pw_hash])
             db_conn.commit()
