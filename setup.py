@@ -2,6 +2,7 @@ from setuptools import setup
 
 install_requires = [
     'flask',
+    'psycopg2',
 ]
 
 setup_requires=[

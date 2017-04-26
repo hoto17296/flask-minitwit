@@ -9,7 +9,8 @@ pip install --editable .[dev]
 
 ### Initialize database
 ```
-FLASK_APP=minitwit flask initdb
+createdb minitwit
+psql minitwit < minitwit/schema.sql
 ```
 
 ### Set environments variables
