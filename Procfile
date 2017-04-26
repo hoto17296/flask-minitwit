@@ -1,1 +1,1 @@
-web: python minitwit
+web: python server

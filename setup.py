@@ -24,7 +24,7 @@ doc_require = [
 
 setup(
     name='minitwit',
-    packages=['minitwit'],
+    packages=['server'],
     include_package_data=True,
     install_requires=install_requires,
     setup_requires=setup_requires,
