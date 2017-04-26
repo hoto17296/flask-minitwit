@@ -17,6 +17,6 @@ CREATE TABLE messages (
   id serial PRIMARY KEY,
   user_id int NOT NULL,
   text text NOT NULL,
-  pub_data int,
+  pub_date int,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
