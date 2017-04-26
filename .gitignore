@@ -1,0 +1,4 @@
+minitwit.db
+.eggs/
+*.egg-info/
+__pycache__/
