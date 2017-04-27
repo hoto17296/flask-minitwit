@@ -11,11 +11,10 @@
 
 import os
 import time
-import psycopg2
-import psycopg2.extras
-from hashlib import md5, sha256
+from hashlib import md5
 from datetime import datetime
 from flask import Flask, request, session, url_for, redirect, render_template, abort, g, flash
+from lib import db, Auth, AuthError
 
 
 # configuration
@@ -27,24 +26,11 @@ SECRET_KEY = os.environ.get('SECRET_KEY', '')
 app = Flask(__name__)
 app.config.from_object(__name__)
 
-db_conn = psycopg2.connect(os.environ.get('DATABASE_URL', 'postgresql://localhost/minitwit'))
-db_cur = db_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
-
-def query_db(query, args=(), one=False):
-    """Queries the database and returns a list of dictionaries."""
-    db_cur.execute(query, args)
-    return db_cur.fetchone() if one else db_cur.fetchall()
-
 
 def get_user_id(name):
     """Convenience method to look up the id for a name."""
-    rv = query_db('SELECT id FROM users WHERE name = %s', [name], one=True)
+    rv = db.query('SELECT id FROM users WHERE name = %s', [name], one=True)
     return None if rv is None else rv['id']
-
-
-def generate_pw_hash(password):
-    return sha256((SECRET_KEY + password).encode('utf-8')).hexdigest()
 
 
 def format_datetime(timestamp):
@@ -60,9 +46,7 @@ def gravatar_url(email, size=80):
 
 @app.before_request
 def before_request():
-    g.user = None
-    if 'user_id' in session:
-        g.user = query_db('SELECT * FROM users WHERE id = %s', [session['user_id']], one=True)
+    g.auth = Auth(session, SECRET_KEY)
 
 
 @app.route('/')
@@ -71,23 +55,23 @@ def timeline():
     redirect to the public timeline.  This timeline shows the user's
     messages as well as all the messages of followed users.
     """
-    if not g.user:
+    if not g.auth.authorized():
         return redirect(url_for('public_timeline'))
-    messages = query_db('''
+    messages = db.query('''
         SELECT messages.*, users.*
         FROM messages
         JOIN users ON messages.user_id = users.id
         WHERE users.id = %s
            OR users.id IN (SELECT whom_id FROM followers WHERE who_id = %s)
         ORDER BY messages.pub_date DESC
-        LIMIT %s''', [session['user_id'], session['user_id'], PER_PAGE])
+        LIMIT %s''', [g.auth.user['id'], g.auth.user['id'], PER_PAGE])
     return render_template('timeline.html', messages=messages)
 
 
 @app.route('/public')
 def public_timeline():
     """Displays the latest messages of all users."""
-    messages = query_db('''
+    messages = db.query('''
         SELECT messages.*, users.*
         FROM messages
         JOIN users ON messages.user_id = users.id
@@ -99,14 +83,14 @@ def public_timeline():
 @app.route('/<name>')
 def user_timeline(name):
     """Display's a users tweets."""
-    profile_user = query_db('SELECT * FROM users WHERE name = %s', [name], one=True)
+    profile_user = db.query('SELECT * FROM users WHERE name = %s', [name], one=True)
     if profile_user is None:
         abort(404)
     followed = False
-    if g.user:
-        followed = query_db('SELECT 1 FROM followers WHERE followers.who_id = %s AND followers.whom_id = %s',
-                            [session['user_id'], profile_user['id']], one=True) is not None
-    messages = query_db('''
+    if g.auth.authorized():
+        followed = db.query('SELECT 1 FROM followers WHERE followers.who_id = %s AND followers.whom_id = %s',
+                            [g.auth.user['id'], profile_user['id']], one=True) is not None
+    messages = db.query('''
                         SELECT messages.*, users.* FROM messages
                         JOIN users ON users.id = messages.user_id
                         WHERE users.id = %s
@@ -119,13 +103,13 @@ def user_timeline(name):
 @app.route('/<name>/follow')
 def follow_user(name):
     """Adds the current user as follower of the given user."""
-    if not g.user:
+    if not g.auth.authorized():
         abort(401)
     whom_id = get_user_id(name)
     if whom_id is None:
         abort(404)
-    db_cur.execute('INSERT INTO followers (who_id, whom_id) values (%s, %s)', [session['user_id'], whom_id])
-    db_conn.commit()
+    db.cur.execute('INSERT INTO followers (who_id, whom_id) values (%s, %s)', [g.auth.user['id'], whom_id])
+    db.conn.commit()
     flash('You are now following "%s"' % name)
     return redirect(url_for('user_timeline', name=name))
 
@@ -133,13 +117,13 @@ def follow_user(name):
 @app.route('/<name>/unfollow')
 def unfollow_user(name):
     """Removes the current user as follower of the given user."""
-    if not g.user:
+    if not g.auth.authorized():
         abort(401)
     whom_id = get_user_id(name)
     if whom_id is None:
         abort(404)
-    db_cur.execute('DELETE FROM followers WHERE who_id=%s AND whom_id=%s', [session['user_id'], whom_id])
-    db_conn.commit()
+    db.cur.execute('DELETE FROM followers WHERE who_id=%s AND whom_id=%s', [g.auth.user['id'], whom_id])
+    db.conn.commit()
     flash('You are no longer following "%s"' % name)
     return redirect(url_for('user_timeline', name=name))
 
@@ -147,12 +131,12 @@ def unfollow_user(name):
 @app.route('/add_message', methods=['POST'])
 def add_message():
     """Registers a new message for the user."""
-    if 'user_id' not in session:
+    if not g.auth.authorized():
         abort(401)
     if request.form['text']:
-        db_cur.execute('''INSERT INTO messages (user_id, text, pub_date)
-          VALUES (%s, %s, %s)''', (session['user_id'], request.form['text'], int(time.time())))
-        db_conn.commit()
+        db.cur.execute('''INSERT INTO messages (user_id, text, pub_date)
+          VALUES (%s, %s, %s)''', (g.auth.user['id'], request.form['text'], int(time.time())))
+        db.conn.commit()
         flash('Your message was recorded')
     return redirect(url_for('timeline'))
 
@@ -160,47 +144,39 @@ def add_message():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """Logs the user in."""
-    if g.user:
+    if g.auth.authorized():
         return redirect(url_for('timeline'))
     error = None
     if request.method == 'POST':
-        user = query_db('''SELECT * FROM users WHERE name = %s''', [request.form['name']], one=True)
-        if user is None:
-            error = 'Invalid name'
-        elif user['pw_hash'] != generate_pw_hash(request.form['password']):
-            error = 'Invalid password'
-        else:
+        try:
+            g.auth.login(request.form['name'], request.form['password'])
             flash('You were logged in')
-            session['user_id'] = user['id']
             return redirect(url_for('timeline'))
+        except AuthError as err:
+            error = str(err)
     return render_template('login.html', error=error)
 
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     """Registers the user."""
-    if g.user:
+    if g.auth.authorized():
         return redirect(url_for('timeline'))
     error = None
     if request.method == 'POST':
-        if not request.form['name']:
-            error = 'You have to enter a name'
-        elif not request.form['email'] or \
-                '@' not in request.form['email']:
-            error = 'You have to enter a valid email address'
-        elif not request.form['password']:
-            error = 'You have to enter a password'
-        elif request.form['password'] != request.form['password2']:
-            error = 'The two passwords do not match'
-        elif get_user_id(request.form['name']) is not None:
-            error = 'The name is already taken'
-        else:
-            pw_hash = generate_pw_hash(request.form['password'])
-            db_cur.execute('INSERT INTO users (name, email, pw_hash) values (%s, %s, %s)',
-                           [request.form['name'], request.form['email'], pw_hash])
-            db_conn.commit()
-            flash('You were successfully registered and can login now')
-            return redirect(url_for('login'))
+        try:
+            if request.form['password'] != request.form['password2']:
+                raise AuthError('The two passwords do not match')
+            g.auth.register({
+                'name': request.form['name'],
+                'email': request.form['email'],
+                'password': request.form['password'],
+            })
+            flash('You were successfully registered')
+            g.auth.login(request.form['name'], request.form['password'])
+            return redirect(url_for('timeline'))
+        except AuthError as err:
+            error = str(err)
     return render_template('register.html', error=error)
 
 
@@ -208,7 +184,7 @@ def register():
 def logout():
     """Logs the user out."""
     flash('You were logged out')
-    session.pop('user_id', None)
+    g.auth.logout()
     return redirect(url_for('public_timeline'))
 
 

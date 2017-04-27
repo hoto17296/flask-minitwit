@@ -11,7 +11,7 @@
 import os
 import tempfile
 import pytest
-from minitwit import minitwit
+from server import app
 
 
 @pytest.fixture

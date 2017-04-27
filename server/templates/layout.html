@@ -4,10 +4,10 @@
 <div class="page">
   <h1>MiniTwit</h1>
   <div class="navigation">
-  {% if g.user %}
+  {% if g.auth.authorized() %}
     <a href="{{ url_for('timeline') }}">my timeline</a> |
     <a href="{{ url_for('public_timeline') }}">public timeline</a> |
-    <a href="{{ url_for('logout') }}">sign out [{{ g.user.name }}]</a>
+    <a href="{{ url_for('logout') }}">sign out [{{ g.auth.user.name }}]</a>
   {% else %}
     <a href="{{ url_for('public_timeline') }}">public timeline</a> |
     <a href="{{ url_for('register') }}">sign up</a> |

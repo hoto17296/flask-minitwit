@@ -10,10 +10,10 @@
 {% endblock %}
 {% block body %}
   <h2>{{ self.title() }}</h2>
-  {% if g.user %}
+  {% if g.auth.user %}
     {% if request.endpoint == 'user_timeline' %}
       <div class="followstatus">
-      {% if g.user.id == profile_user.id %}
+      {% if g.auth.user.id == profile_user.id %}
         This is you!
       {% elif followed %}
         You are currently following this user.
@@ -27,7 +27,7 @@
       </div>
     {% elif request.endpoint == 'timeline' %}
       <div class="twitbox">
-        <h3>What's on your mind {{ g.user.name }}?</h3>
+        <h3>What's on your mind {{ g.auth.user.name }}?</h3>
         <form action="{{ url_for('add_message') }}" method="post">
           <p><input type="text" name="text" size="60"><!--
           --><input type="submit" value="Share">
