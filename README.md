@@ -32,3 +32,20 @@ python setup.py test
 ```
 flake8 server
 ```
+
+## Run with Docker
+### Setup
+```
+docker-compose build
+docker-compose run --rm web flask initdb
+```
+
+### Run
+```
+docker-compose up
+```
+
+### Update dependency packages
+```
+docker-compose run --rm web pip install -e .
+```

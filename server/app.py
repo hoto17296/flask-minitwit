@@ -15,7 +15,7 @@ from hashlib import md5
 from datetime import datetime
 from flask import Flask, request, session, url_for, redirect, render_template, abort, g, flash
 from flask_session import Session
-from lib import db, kvs, Auth, AuthError
+from .lib import db, kvs, Auth, AuthError
 
 
 # configuration
@@ -29,6 +29,18 @@ SECRET_KEY = os.environ.get('SECRET_KEY', '')
 app = Flask(__name__)
 app.config.from_object(__name__)
 Session(app)
+
+
+def init_db():
+    with app.open_resource('schema.sql', mode='r') as f:
+        db.cur.execute(f.read())
+    db.conn.commit()
+
+
+@app.cli.command('initdb')
+def initdb_command():
+    init_db()
+    print('Initialized the database.')
 
 
 def get_user_id(name):

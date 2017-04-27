@@ -1,0 +1,31 @@
+version: '2'
+services:
+
+  db:
+    restart: always
+    image: postgres:alpine
+    ports:
+      - "15432:5432"
+
+  redis:
+    restart: always
+    image: redis:alpine
+    ports:
+      - "16379:6379"
+
+  web:
+    restart: always
+    build: .
+    environment:
+      FLASK_APP: server
+      DATABASE_URL: postgresql://postgres@db/postgres
+      REDIS_URL: redis://redis
+      SECRET_KEY: deadbeef
+    command: flask run --port=80 --host=0.0.0.0
+    ports:
+      - "5000:80"
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
