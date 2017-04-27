@@ -14,17 +14,21 @@ import time
 from hashlib import md5
 from datetime import datetime
 from flask import Flask, request, session, url_for, redirect, render_template, abort, g, flash
-from lib import db, Auth, AuthError
+from flask_session import Session
+from lib import db, kvs, Auth, AuthError
 
 
 # configuration
 PER_PAGE = int(os.environ.get('PER_PAGE', 30))
 DEBUG = bool(os.environ.get('DEBUG', False))
+SESSION_TYPE = 'redis'
+SESSION_REDIS = kvs
 SECRET_KEY = os.environ.get('SECRET_KEY', '')
 
 # create our little application :)
 app = Flask(__name__)
 app.config.from_object(__name__)
+Session(app)
 
 
 def get_user_id(name):

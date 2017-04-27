@@ -2,7 +2,9 @@ from setuptools import setup
 
 install_requires = [
     'flask',
+    'flask-session',
     'psycopg2',
+    'redis',
 ]
 
 setup_requires=[
