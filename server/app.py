@@ -20,7 +20,6 @@ from .lib import db, kvs, Auth, AuthError
 
 # configuration
 PER_PAGE = int(os.environ.get('PER_PAGE', 30))
-DEBUG = bool(os.environ.get('DEBUG', False))
 SESSION_TYPE = 'redis'
 SESSION_REDIS = kvs
 SECRET_KEY = os.environ.get('SECRET_KEY', '')

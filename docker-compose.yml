@@ -18,6 +18,7 @@ services:
     build: .
     environment:
       FLASK_APP: server
+      FLASK_DEBUG: 1
       DATABASE_URL: postgresql://postgres@db/postgres
       REDIS_URL: redis://redis
       SECRET_KEY: deadbeef
