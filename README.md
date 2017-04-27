@@ -10,7 +10,7 @@ pip install --editable .[dev]
 ### Initialize database
 ```
 createdb minitwit
-psql minitwit < minitwit/schema.sql
+psql minitwit < server/schema.sql
 ```
 
 ### Set environments variables
@@ -30,5 +30,5 @@ python setup.py test
 
 ## Lint
 ```
-flake8 minitwit
+flake8 server
 ```
