@@ -44,8 +44,3 @@ docker-compose run --rm web flask initdb
 ```
 docker-compose up
 ```
-
-### Update dependency packages
-```
-docker-compose run --rm web pip install -e .
-```
