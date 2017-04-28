@@ -10,6 +10,8 @@
 {% endblock %}
 {% block body %}
   <h2>{{ self.title() }}</h2>
+  <script src="{{ url_for('static', filename='timeline.js') }}" defer></script>
+  <div id='timeline'></div>
   {% if g.auth.user %}
     {% if request.endpoint == 'user_timeline' %}
       <div class="followstatus">
