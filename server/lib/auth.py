@@ -1,5 +1,5 @@
 from hashlib import sha256
-from . import db
+from . import User
 
 
 class AuthError(Exception):
@@ -11,7 +11,7 @@ class Auth:
         self.store = store
         self.salt = salt
         self.key = key
-        self.user = db.query('SELECT * FROM users WHERE id = %s', [store[key]], one=True) if key in store else None
+        self.user = User.find_by('id', store[key]) if key in store else None
 
     def authorized(self):
         return self.user is not None
@@ -20,16 +20,16 @@ class Auth:
         return sha256((self.salt + password).encode('utf-8')).hexdigest()
 
     def check_name_is_available(self, name):
-        return db.query('SELECT id FROM users WHERE name = %s', [name], one=True) is None
+        return User.find_by('name', name) is None
 
     def login(self, name, password):
-        user = db.query('SELECT * FROM users WHERE name = %s', [name], one=True)
+        user = User.find_by('name', name)
         if user is None:
             raise AuthError('Invalid name')
-        elif user['pw_hash'] != self.generate_pw_hash(password):
+        elif user.pw_hash != self.generate_pw_hash(password):
             raise AuthError('Invalid password')
         else:
-            self.store[self.key] = user['id']
+            self.store[self.key] = user.id
             return user
 
     def logout(self):
@@ -46,6 +46,4 @@ class Auth:
             raise AuthError('The name is already taken')
         else:
             pw_hash = self.generate_pw_hash(user['password'])
-            db.cur.execute('INSERT INTO users (name, email, pw_hash) values (%s, %s, %s)',
-                           [user['name'], user['email'], pw_hash])
-            db.conn.commit()
+            return User.create(user['name'], user['email'], pw_hash)

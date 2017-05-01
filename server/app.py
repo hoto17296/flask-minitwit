@@ -14,7 +14,7 @@ import time
 from hashlib import md5
 from flask import Flask, request, session, url_for, redirect, render_template, abort, g, flash
 from flask_session import Session
-from .lib import db, kvs, Auth, AuthError
+from .lib import db, kvs, Auth, AuthError, User
 
 
 # configuration
@@ -39,12 +39,6 @@ def init_db():
 def initdb_command():
     init_db()
     print('Initialized the database.')
-
-
-def get_user_id(name):
-    """Convenience method to look up the id for a name."""
-    rv = db.query('SELECT id FROM users WHERE name = %s', [name], one=True)
-    return None if rv is None else rv['id']
 
 
 def gravatar_url(email, size=80):
@@ -84,7 +78,7 @@ def timeline():
         WHERE users.id = %s
            OR users.id IN (SELECT whom_id FROM followers WHERE who_id = %s)
         ORDER BY messages.pub_date DESC
-        LIMIT %s''', [g.auth.user['id'], g.auth.user['id'], PER_PAGE])
+        LIMIT %s''', [g.auth.user.id, g.auth.user.id, PER_PAGE])
     return render_template('timeline.html', messages=messages)
 
 
@@ -103,20 +97,20 @@ def public_timeline():
 @app.route('/<name>')
 def user_timeline(name):
     """Display's a users tweets."""
-    profile_user = db.query('SELECT * FROM users WHERE name = %s', [name], one=True)
+    profile_user = User.find_by('name', name)
     if profile_user is None:
         abort(404)
     followed = False
     if g.auth.authorized():
         followed = db.query('SELECT 1 FROM followers WHERE followers.who_id = %s AND followers.whom_id = %s',
-                            [g.auth.user['id'], profile_user['id']], one=True) is not None
+                            [g.auth.user.id, profile_user.id], one=True) is not None
     messages = db.query('''
                         SELECT messages.*, users.* FROM messages
                         JOIN users ON users.id = messages.user_id
                         WHERE users.id = %s
                         ORDER BY messages.pub_date DESC
                         LIMIT %s''',
-                        [profile_user['id'], PER_PAGE])
+                        [profile_user.id, PER_PAGE])
     return render_template('timeline.html', messages=messages, followed=followed, profile_user=profile_user)
 
 
@@ -125,10 +119,10 @@ def follow_user(name):
     """Adds the current user as follower of the given user."""
     if not g.auth.authorized():
         abort(401)
-    whom_id = get_user_id(name)
-    if whom_id is None:
+    whom = User.find_by('name', name)
+    if whom is None:
         abort(404)
-    db.cur.execute('INSERT INTO followers (who_id, whom_id) values (%s, %s)', [g.auth.user['id'], whom_id])
+    db.cur.execute('INSERT INTO followers (who_id, whom_id) values (%s, %s)', [g.auth.user.id, whom.id])
     db.conn.commit()
     flash('You are now following "%s"' % name)
     return redirect(url_for('user_timeline', name=name))
@@ -139,10 +133,10 @@ def unfollow_user(name):
     """Removes the current user as follower of the given user."""
     if not g.auth.authorized():
         abort(401)
-    whom_id = get_user_id(name)
-    if whom_id is None:
+    whom = User.find_by('name', name)
+    if whom is None:
         abort(404)
-    db.cur.execute('DELETE FROM followers WHERE who_id=%s AND whom_id=%s', [g.auth.user['id'], whom_id])
+    db.cur.execute('DELETE FROM followers WHERE who_id=%s AND whom_id=%s', [g.auth.user.id, whom.id])
     db.conn.commit()
     flash('You are no longer following "%s"' % name)
     return redirect(url_for('user_timeline', name=name))
@@ -155,7 +149,7 @@ def add_message():
         abort(401)
     if request.form['text']:
         db.cur.execute('''INSERT INTO messages (user_id, text, pub_date)
-          VALUES (%s, %s, %s)''', (g.auth.user['id'], request.form['text'], int(time.time())))
+          VALUES (%s, %s, %s)''', (g.auth.user.id, request.form['text'], int(time.time())))
         db.conn.commit()
         flash('Your message was recorded')
     return redirect(url_for('timeline'))
