@@ -10,7 +10,7 @@
 </template>
 
 <script>
-import message from './message'
+import message from './message';
 
 export default {
   name: 'timeline',
@@ -19,9 +19,9 @@ export default {
     messages: {
       type: Array,
       required: true,
-    }
+    },
   },
-}
+};
 </script>
 
 <style scoped>

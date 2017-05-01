@@ -20,11 +20,11 @@ export default {
     pub_date: { type: Number, required: true },
   },
   computed: {
-    user_timeline_path: function() {
-      return '/' + this.user.name;
+    user_timeline_path() {
+      return `/${this.user.name}`;
     },
   },
-}
+};
 </script>
 
 <style scoped>
