@@ -9,6 +9,9 @@ module.exports = {
     path: path.resolve(__dirname, 'server/static'),
     filename: '[name].js',
   },
+  resolve: {
+    extensions: ['.js', '.vue']
+  },
   module: {
     rules: [
       {

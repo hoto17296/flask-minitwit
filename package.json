@@ -16,6 +16,7 @@
     "webpack": "^2.4.1"
   },
   "dependencies": {
+    "fecha": "^2.3.0",
     "vue": "^2.3.0"
   }
 }

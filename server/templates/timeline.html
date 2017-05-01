@@ -10,8 +10,6 @@
 {% endblock %}
 {% block body %}
   <h2>{{ self.title() }}</h2>
-  <script src="{{ url_for('static', filename='timeline.js') }}" defer></script>
-  <div id='timeline'></div>
   {% if g.auth.user %}
     {% if request.endpoint == 'user_timeline' %}
       <div class="followstatus">
@@ -37,15 +35,7 @@
       </div>
     {% endif %}
   {% endif %}
-  <ul class="messages">
-  {% for message in messages %}
-    <li><img src="{{ message.email|gravatar(size=48) }}"><p>
-      <strong><a href="{{ url_for('user_timeline', name=message.name)
-      }}">{{ message.name }}</a></strong>
-      {{ message.text }}
-      <small>&mdash; {{ message.pub_date|datetimeformat }}</small>
-  {% else %}
-    <li><em>There's no message so far.</em>
-  {% endfor %}
-  </ul>
+  <div id='timeline'></div>
+  <script type='application/json' id='data_messages'>{{ messages | map('message_to_dict') | list | tojson | safe }}</script>
+  <script src="{{ url_for('static', filename='timeline.js') }}" defer></script>
 {% endblock %}
