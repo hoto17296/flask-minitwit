@@ -10,10 +10,9 @@
 """
 
 import os
-import time
 from flask import Flask, request, session, url_for, redirect, render_template, abort, g, flash
 from flask_session import Session
-from .lib import db, kvs, Auth, AuthError, User, Timeline
+from .lib import tasks, kvs, Auth, AuthError, User, Timeline
 
 
 # configuration
@@ -27,15 +26,9 @@ app.config.from_object(__name__)
 Session(app)
 
 
-def init_db():
-    with app.open_resource('schema.sql', mode='r') as f:
-        db.cur.execute(f.read())
-    db.conn.commit()
-
-
 @app.cli.command('initdb')
 def initdb_command():
-    init_db()
+    tasks.init_db()
     print('Initialized the database.')
 
 
@@ -67,11 +60,10 @@ def user_timeline(name):
     user = User.find_by('name', name)
     if user is None:
         abort(404)
-    followed = False
+    following = False
     if g.auth.authorized():
-        followed = db.query('SELECT 1 FROM followers WHERE followers.who_id = %s AND followers.whom_id = %s',
-                            [g.auth.user.id, user.id], one=True) is not None
-    return render_template('timeline.html', timeline=Timeline.user(user), followed=followed)
+        following = g.auth.user.is_following(user)
+    return render_template('timeline.html', timeline=Timeline.user(user), following=following)
 
 
 @app.route('/<name>/follow')
@@ -79,11 +71,10 @@ def follow_user(name):
     """Adds the current user as follower of the given user."""
     if not g.auth.authorized():
         abort(401)
-    whom = User.find_by('name', name)
-    if whom is None:
+    user = User.find_by('name', name)
+    if user is None:
         abort(404)
-    db.cur.execute('INSERT INTO followers (who_id, whom_id) values (%s, %s)', [g.auth.user.id, whom.id])
-    db.conn.commit()
+    g.auth.user.follow(user)
     flash('You are now following "%s"' % name)
     return redirect(url_for('user_timeline', name=name))
 
@@ -93,11 +84,10 @@ def unfollow_user(name):
     """Removes the current user as follower of the given user."""
     if not g.auth.authorized():
         abort(401)
-    whom = User.find_by('name', name)
-    if whom is None:
+    user = User.find_by('name', name)
+    if user is None:
         abort(404)
-    db.cur.execute('DELETE FROM followers WHERE who_id=%s AND whom_id=%s', [g.auth.user.id, whom.id])
-    db.conn.commit()
+    g.auth.user.unfollow(user)
     flash('You are no longer following "%s"' % name)
     return redirect(url_for('user_timeline', name=name))
 
@@ -108,9 +98,7 @@ def add_message():
     if not g.auth.authorized():
         abort(401)
     if request.form['text']:
-        db.cur.execute('''INSERT INTO messages (user_id, text, pub_date)
-          VALUES (%s, %s, %s)''', (g.auth.user.id, request.form['text'], int(time.time())))
-        db.conn.commit()
+        g.auth.user.post_message(request.form['text'])
         flash('Your message was recorded')
     return redirect(url_for('timeline'))
 
