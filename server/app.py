@@ -11,14 +11,12 @@
 
 import os
 import time
-from hashlib import md5
 from flask import Flask, request, session, url_for, redirect, render_template, abort, g, flash
 from flask_session import Session
-from .lib import db, kvs, Auth, AuthError, User
+from .lib import db, kvs, Auth, AuthError, User, Timeline
 
 
 # configuration
-PER_PAGE = int(os.environ.get('PER_PAGE', 30))
 SESSION_TYPE = 'redis'
 SESSION_REDIS = kvs
 SECRET_KEY = os.environ.get('SECRET_KEY', '')
@@ -41,23 +39,6 @@ def initdb_command():
     print('Initialized the database.')
 
 
-def gravatar_url(email, size=80):
-    """Return the gravatar image for the given email address."""
-    return 'https://www.gravatar.com/avatar/%s?d=identicon&s=%d' % \
-        (md5(email.strip().lower().encode('utf-8')).hexdigest(), size)
-
-
-def message_to_dict(message):
-    return {
-        'user': {
-            'name': message['name'],
-            'icon_url': gravatar_url(message['email'], 48),
-        },
-        'text': message['text'],
-        'pub_date': message['pub_date'],
-    }
-
-
 @app.before_request
 def before_request():
     g.auth = Auth(session, SECRET_KEY)
@@ -71,47 +52,26 @@ def timeline():
     """
     if not g.auth.authorized():
         return redirect(url_for('public_timeline'))
-    messages = db.query('''
-        SELECT messages.*, users.*
-        FROM messages
-        JOIN users ON messages.user_id = users.id
-        WHERE users.id = %s
-           OR users.id IN (SELECT whom_id FROM followers WHERE who_id = %s)
-        ORDER BY messages.pub_date DESC
-        LIMIT %s''', [g.auth.user.id, g.auth.user.id, PER_PAGE])
-    return render_template('timeline.html', messages=messages)
+    return render_template('timeline.html', timeline=Timeline.following(g.auth.user))
 
 
 @app.route('/public')
 def public_timeline():
     """Displays the latest messages of all users."""
-    messages = db.query('''
-        SELECT messages.*, users.*
-        FROM messages
-        JOIN users ON messages.user_id = users.id
-        ORDER BY messages.pub_date DESC
-        LIMIT %s''', [PER_PAGE])
-    return render_template('timeline.html', messages=messages)
+    return render_template('timeline.html', timeline=Timeline.public())
 
 
 @app.route('/<name>')
 def user_timeline(name):
     """Display's a users tweets."""
-    profile_user = User.find_by('name', name)
-    if profile_user is None:
+    user = User.find_by('name', name)
+    if user is None:
         abort(404)
     followed = False
     if g.auth.authorized():
         followed = db.query('SELECT 1 FROM followers WHERE followers.who_id = %s AND followers.whom_id = %s',
-                            [g.auth.user.id, profile_user.id], one=True) is not None
-    messages = db.query('''
-                        SELECT messages.*, users.* FROM messages
-                        JOIN users ON users.id = messages.user_id
-                        WHERE users.id = %s
-                        ORDER BY messages.pub_date DESC
-                        LIMIT %s''',
-                        [profile_user.id, PER_PAGE])
-    return render_template('timeline.html', messages=messages, followed=followed, profile_user=profile_user)
+                            [g.auth.user.id, user.id], one=True) is not None
+    return render_template('timeline.html', timeline=Timeline.user(user), followed=followed)
 
 
 @app.route('/<name>/follow')
@@ -200,6 +160,3 @@ def logout():
     flash('You were logged out')
     g.auth.logout()
     return redirect(url_for('public_timeline'))
-
-
-app.jinja_env.filters['message_to_dict'] = message_to_dict

@@ -1,6 +1,6 @@
 <template>
   <div class='message'>
-    <img :src='user.icon_url'>
+    <img :src='user_resized_icon_url'>
     <p>
       <strong>
         <a :href='user_timeline_path'>{{ user.name }}</a>
@@ -22,6 +22,9 @@ export default {
   computed: {
     user_timeline_path() {
       return `/${this.user.name}`;
+    },
+    user_resized_icon_url() {
+      return `${this.user.icon_url}&s=48`;
     },
   },
 };

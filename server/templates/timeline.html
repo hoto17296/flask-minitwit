@@ -1,9 +1,9 @@
 {% extends "layout.html" %}
 {% block title %}
-  {% if request.endpoint == 'public_timeline' %}
+  {% if timeline.type == 'public' %}
     Public Timeline
-  {% elif request.endpoint == 'user_timeline' %}
-    {{ profile_user.name }}'s Timeline
+  {% elif timeline.type == 'user' %}
+    {{ timeline.user.name }}'s Timeline
   {% else %}
     My Timeline
   {% endif %}
@@ -11,21 +11,21 @@
 {% block body %}
   <h2>{{ self.title() }}</h2>
   {% if g.auth.user %}
-    {% if request.endpoint == 'user_timeline' %}
+    {% if timeline.type == 'user' %}
       <div class="followstatus">
-      {% if g.auth.user.id == profile_user.id %}
+      {% if g.auth.user.id == timeline.user.id %}
         This is you!
       {% elif followed %}
         You are currently following this user.
-        <a class="unfollow" href="{{ url_for('unfollow_user', name=profile_user.name)
+        <a class="unfollow" href="{{ url_for('unfollow_user', name=timeline.user.name)
           }}">Unfollow user</a>.
       {% else %}
         You are not yet following this user.
-        <a class="follow" href="{{ url_for('follow_user', name=profile_user.name)
+        <a class="follow" href="{{ url_for('follow_user', name=timeline.user.name)
           }}">Follow user</a>.
       {% endif %}
       </div>
-    {% elif request.endpoint == 'timeline' %}
+    {% elif timeline.type == 'following' %}
       <div class="twitbox">
         <h3>What's on your mind {{ g.auth.user.name }}?</h3>
         <form action="{{ url_for('add_message') }}" method="post">
@@ -36,6 +36,6 @@
     {% endif %}
   {% endif %}
   <div id='timeline'></div>
-  <script type='application/json' id='data_messages'>{{ messages | map('message_to_dict') | list | tojson | safe }}</script>
+  <script type='application/json' id='timeline_data'>{{ timeline.to_dict() | tojson | safe }}</script>
   <script src="{{ url_for('static', filename='timeline.js') }}" defer></script>
 {% endblock %}
