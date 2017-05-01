@@ -48,15 +48,21 @@ def get_user_id(name):
     return None if rv is None else rv['id']
 
 
-def format_datetime(timestamp):
-    """Format a timestamp for display."""
-    return datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d @ %H:%M')
-
-
 def gravatar_url(email, size=80):
     """Return the gravatar image for the given email address."""
     return 'https://www.gravatar.com/avatar/%s?d=identicon&s=%d' % \
         (md5(email.strip().lower().encode('utf-8')).hexdigest(), size)
+
+
+def message_to_dict(message):
+    return {
+        'user': {
+            'name': message['name'],
+            'icon_url': gravatar_url(message['email'], 48),
+        },
+        'text': message['text'],
+        'pub_date': message['pub_date'],
+    }
 
 
 @app.before_request
@@ -203,6 +209,4 @@ def logout():
     return redirect(url_for('public_timeline'))
 
 
-# add some filters to jinja
-app.jinja_env.filters['datetimeformat'] = format_datetime
-app.jinja_env.filters['gravatar'] = gravatar_url
+app.jinja_env.filters['message_to_dict'] = message_to_dict
