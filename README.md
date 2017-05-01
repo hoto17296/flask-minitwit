@@ -44,3 +44,14 @@ docker-compose run --rm web flask initdb
 ```
 docker-compose up
 ```
+
+## Frontend
+### Setup
+```
+npm install
+```
+
+### Start development
+```
+npm start
+```
