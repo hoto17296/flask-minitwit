@@ -12,7 +12,6 @@
 import os
 import time
 from hashlib import md5
-from datetime import datetime
 from flask import Flask, request, session, url_for, redirect, render_template, abort, g, flash
 from flask_session import Session
 from .lib import db, kvs, Auth, AuthError
