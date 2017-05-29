@@ -37,7 +37,7 @@ flake8 server
 ### Setup
 ```
 docker-compose build
-docker-compose run --rm web flask initdb
+docker-compose run --rm -e FLASK_APP=server web flask initdb
 ```
 
 ### Run
